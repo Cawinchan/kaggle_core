@@ -85,7 +85,7 @@ def binarize(df):
     return df
 
 
-def df_stores(df):
+def get_stores_dataframe(df):
     df = csv_to_df(df)
     df_bi = binarize(df)
     return df_bi
@@ -96,14 +96,13 @@ def gbcollector(*dfs):
     del lst
 
 
-def df_stores_unit_sales(df1, df2):
-    df_df2 = csv_to_df(df2)
+def merge_stores_with_unit_sales(df1, df2):
     new_name_df = merger(df1, df_df2, on='store_nbr', how='inner')
     new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
     return new_name_df
 
 
-def df_dates():
+def get_dates_dataframe():
     beg = pd.Timestamp('2012-01-01')
     end = pd.Timestamp('2017-12-31')
     days = pd.DatetimeIndex(start=beg, end=end, freq='D')
@@ -114,14 +113,14 @@ def df_dates():
     return dates
 
 
-def df_bc(df):
+def get_bc_dataframe(df):
     df = csv_to_df(df)
     df.rename(index=str, columns={"DATE": "date", "PBANSOPUSDM": "gp_bananas", "PCOCOUSDM": "gp_cocas"}, inplace=True)
     df = df.set_index('date')
     return df
 
 
-def df_oil(df):
+def get_oil_dataframe(df):
     df = csv_to_df(df)
     df = df.set_index('date')
     return df
@@ -306,15 +305,15 @@ oil = TRAINING_DIRECTORY + "oil.csv"
 items = TRAINING_DIRECTORY + "items.csv"
 e = TRAINING_DIRECTORY + "train.csv"
 
-df_stores = df_stores(stores)
+df_stores = get_stores_dataframe(stores)
+df_unit_sales = csv_to_df(unit_sales)
+df_su = merge_stores_with_unit_sales(df_stores, df_unit_sales)
 
-df_su = df_stores_unit_sales(df_stores, unit_sales)
+df_dates = get_dates_dataframe()
 
-df_dates = df_dates()
+df_bc = get_bc_dataframe(bc)
 
-df_bc = df_bc(bc)
-
-df_oil = df_oil(oil)
+df_oil = get_oil_dataframe(oil)
 
 df_dobc = df_dates_oil_bc(df_dates, df_oil, df_bc)
 
