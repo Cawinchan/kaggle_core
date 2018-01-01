@@ -14,6 +14,7 @@ from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
 import platform
 import os
 
+
 def csv_to_df(csv):
     if csv == stores:
         df = pd.read_csv(csv,
@@ -51,7 +52,7 @@ def merger(df1, df2, on, how):
     return merged
 
 
-def concatnator(*dfs, axis):
+def concatenator(*dfs, axis):
     concatnated = pd.concat([*dfs], axis=axis)
     concatnated.fillna(0, inplace=True)
     gbcollector(*dfs)
@@ -72,12 +73,12 @@ def binarize(df):
             transformed = lb.transform(df[column])
             new_df = pd.DataFrame(transformed)
             new_df.rename(columns=dict(map(lambda x: (x, str(column) + "_" + str(x)), new_df)),
-                                 inplace=True)
-            temp = concatnator(temp, new_df, axis=1)
+                          inplace=True)
+            temp = concatenator(temp, new_df, axis=1)
             removal_list.append(column)
         else:
             pass
-    df = concatnator(df, temp, axis=1)
+    df = concatenator(df, temp, axis=1)
     for column in removal_list:
         del df[column]
     print("replaced columns", removal_list)
@@ -90,15 +91,10 @@ def get_stores_df(df):
     return df_bi
 
 
-def gbcollector(*dfs):
-    lst = [*dfs]
-    del lst
-
-
-def merge_stores_with_unit_sales(df1, df2):
-    new_name_df = merger(df1, df_df2, on='store_nbr', how='inner')
-    new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
-    return new_name_df
+def merge_stores_with_unit_sales(stores, unit_sales):
+    merged_df = merger(stores, unit_sales, on='store_nbr', how='inner')
+    merged_df['date'] = pd.DatetimeIndex(merged_df['date'])
+    return merged_df
 
 
 def get_dates_df():
@@ -126,20 +122,20 @@ def get_oil_df(df):
 
 
 def concat_dates_oil_bc(*df):
-    new_name_df = concatnator(*df, axis=1)
-    interpolate(new_name_df)
-    return new_name_df
+    return_df = concatenator(*df, axis=1)
+    interpolate(return_df)
+    return return_df
 
 
-def interpolate(new_name_df):
-    new_name_df.reset_index(inplace=True)
-    new_name_df.rename(columns={'index': 'date'}, inplace=True)
-    new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
-    new_name_df.set_index('date', inplace=True)
-    new_name_df['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
-                                          method='time')  # interpolate function because a lot of dates don't have oil values
-    new_name_df['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
-    new_name_df['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
+def interpolate(df_oil):
+    df_oil.reset_index(inplace=True)
+    df_oil.rename(columns={'index': 'date'}, inplace=True)
+    df_oil['date'] = pd.DatetimeIndex(df_oil['date'])
+    df_oil.set_index('date', inplace=True)
+    df_oil['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
+                                     method='time')  # interpolate function because a lot of dates don't have oil values
+    df_oil['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
+    df_oil['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
 
 
 def get_wages_df():
@@ -152,6 +148,7 @@ def get_wages_df():
     wages['date'] = pd.DatetimeIndex(wages['date'])
     wages.set_index('date', inplace=True)
     return wages
+
 
 def get_weekends_df():
     beg = pd.Timestamp('2012-01-01')
@@ -168,12 +165,12 @@ def get_weekends_df():
     saturday.rename(columns={0: 'date'}, inplace=True)
     saturday['date'] = pd.DatetimeIndex(saturday['date'])
     saturday.set_index('date', inplace=True)
-    df_weekend = concatnator(saturday, sunday, axis=1)
+    df_weekend = concatenator(saturday, sunday, axis=1)
     return df_weekend
 
 
 def concat_wages_weekend(*df):
-    ww = concatnator(*df, axis=1)
+    ww = concatenator(*df, axis=1)
     ww.reset_index(inplace=True)
     ww['date'] = pd.DatetimeIndex(ww['date'])
     ww.set_index('date', inplace=True)
@@ -181,7 +178,7 @@ def concat_wages_weekend(*df):
 
 
 def concat_date_oil_bc_wages_weekends(*df):
-    dobcww = concatnator(*df, axis=1)
+    dobcww = concatenator(*df, axis=1)
     dobcww.reset_index(inplace=True)
     return dobcww
 
@@ -225,9 +222,9 @@ def manage_transferred_dates(df):
     return df
 
 
-def merge_holidays_events_with_dates_oil_bc_wages_weekends(df1, df2):
-    new_name_df = merger(df1, df2, on='date', how='inner')
-    gbcollector(df1, df2)
+def merge_holidays_events_with_dates_oil_bc_wages_weekends(holiday_events, df2):
+    new_name_df = merger(holiday_events, df2, on='date', how='inner')
+    gbcollector(holiday_events, df2)
     new_name_df['date'] = new_name_df['date'].astype(object)
     new_name_df.fillna(0, inplace=True)
     new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
@@ -238,6 +235,8 @@ def merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(df1
     new_name_df = merger(df1, df2, on='date', how='inner')
     new_name_df.fillna(0, inplace=True)
     new_name_df['date'] = new_name_df['date'].astype(str)
+    hedobcww.reset_index(inplace=True)
+    hedobcww['date'] = hedobcww['date'].astype(str)
     return new_name_df
 
 
@@ -246,7 +245,7 @@ def downcast(df):
     converted_int = df.select_dtypes(include=['int']).apply(pd.to_numeric, downcast='unsigned')
     converted_float = df.select_dtypes(include=['float']).apply(pd.to_numeric, downcast='float')
     df_obj = df.select_dtypes(include=['object']).copy()
-    df = concatnator(converted_int, converted_float, df_obj, axis=1)
+    df = concatenator(converted_int, converted_float, df_obj, axis=1)
     gbcollector(converted_int, converted_float, df_obj)
     print(df.info())
     return df
@@ -291,18 +290,14 @@ def partitioner_array(df):
 def get_unit_sales_df():
     return csv_to_df(unit_sales)
 
-def merge_training_data_with_all_other_df(df_e,items):
 
+def merge_training_data_with_all_other_df(df_e, items):
     for partition in partitioner_array(df_e):
         e_items = partition.merge(items, on='item_nbr', how='inner')
 
         e_items.fillna(0, inplace=True)
 
         e_items.info()
-
-        hedobcww.reset_index(inplace=True)
-
-        hedobcww['date'] = hedobcww['date'].astype(str)
 
         e['date'] = e['date'].astype(str)
 
@@ -336,7 +331,7 @@ holidays_events = TRAINING_DIRECTORY + "holidays_events.csv"
 bc = TRAINING_DIRECTORY + "bc.csv"
 oil = TRAINING_DIRECTORY + "oil.csv"
 items = TRAINING_DIRECTORY + "items.csv"
-e = TRAINING_DIRECTORY + "train.csv"
+e = TRAINING_DIRECTORY + "sampled_train.csv"
 
 df_stores = get_stores_df(stores)
 df_unit_sales = get_unit_sales_df()
@@ -363,7 +358,7 @@ df_items = get_items_df(items)
 
 df_e = get_training_data_df(e)
 
-merge_training_data_with_all_other_df(df_e,df_items,df_dc_hedobcwwsu)
+merge_training_data_with_all_other_df(df_e, df_items, df_dc_hedobcwwsu)
 
 scaled_training_data = minmax_scale(training_data)  # minmax defaults to [0,1]
 
