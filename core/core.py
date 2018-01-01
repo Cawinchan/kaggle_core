@@ -48,14 +48,12 @@ def csv_to_df(csv):
 def merger(df1, df2, on, how):
     merged = df1.merge(df2, on=on, how=how)
     merged.fillna(0, inplace=True)
-    gbcollector(df1, df2)
     return merged
 
 
 def concatenator(*dfs, axis):
     concatnated = pd.concat([*dfs], axis=axis)
     concatnated.fillna(0, inplace=True)
-    gbcollector(*dfs)
     return concatnated
 
 
@@ -224,7 +222,6 @@ def manage_transferred_dates(df):
 
 def merge_holidays_events_with_dates_oil_bc_wages_weekends(holiday_events, df2):
     new_name_df = merger(holiday_events, df2, on='date', how='inner')
-    gbcollector(holiday_events, df2)
     new_name_df['date'] = new_name_df['date'].astype(object)
     new_name_df.fillna(0, inplace=True)
     new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
@@ -235,8 +232,6 @@ def merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(df1
     new_name_df = merger(df1, df2, on='date', how='inner')
     new_name_df.fillna(0, inplace=True)
     new_name_df['date'] = new_name_df['date'].astype(str)
-    hedobcww.reset_index(inplace=True)
-    hedobcww['date'] = hedobcww['date'].astype(str)
     return new_name_df
 
 
@@ -246,7 +241,6 @@ def downcast(df):
     converted_float = df.select_dtypes(include=['float']).apply(pd.to_numeric, downcast='float')
     df_obj = df.select_dtypes(include=['object']).copy()
     df = concatenator(converted_int, converted_float, df_obj, axis=1)
-    gbcollector(converted_int, converted_float, df_obj)
     print(df.info())
     return df
 
