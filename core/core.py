@@ -36,7 +36,7 @@ def csv_to_df(csv):
                          dtype={'item_nbr': np.float32, 'family': str, 'class': np.int16, 'perishable': np.int16})
 
     elif csv == e:
-        df = pd.read_csv(csv, nrows=1000000,
+        df = pd.read_csv(csv,
                          dtype={'id': np.int32, 'date': object, 'store_nbr': np.int32, 'item_nbr': np.int32,
                                 'unit_sales': np.float32, 'onpromotion': str})
     else:
@@ -83,10 +83,14 @@ def binarize(df):
     return df
 
 
-def get_stores_df(df):
-    df = csv_to_df(df)
-    df_bi = binarize(df)
-    return df_bi
+def get_stores_df(stores):
+    df_stores = csv_to_df(stores)
+    df_stores = binarize(df_stores)
+    return df_stores
+
+
+def get_unit_sales_df(unit_sales):
+    return csv_to_df(unit_sales)
 
 
 def merge_stores_with_unit_sales(stores, unit_sales):
@@ -106,34 +110,34 @@ def get_dates_df():
     return dates
 
 
-def get_bc_df(df):
-    df = csv_to_df(df)
-    df.rename(index=str, columns={"DATE": "date", "PBANSOPUSDM": "gp_bananas", "PCOCOUSDM": "gp_cocas"}, inplace=True)
-    df = df.set_index('date')
-    return df
+def get_bc_df(bc):
+    df_bc = csv_to_df(bc)
+    df_bc.rename(index=str, columns={"DATE": "date", "PBANSOPUSDM": "gp_bananas", "PCOCOUSDM": "gp_cocas"}, inplace=True)
+    df_bc = df_bc.set_index('date')
+    return df_bc
 
 
-def get_oil_df(df):
-    df = csv_to_df(df)
-    df = df.set_index('date')
-    return df
+def get_oil_df(oil):
+    oil = csv_to_df(oil)
+    oil = oil.set_index('date')
+    return oil
 
 
-def concat_dates_oil_bc(*df):
-    return_df = concatenator(*df, axis=1)
-    interpolate(return_df)
-    return return_df
+def concat_dates_oil_bc(dates, oil, bc):
+    return_df_dobc = concatenator(dates, oil, bc, axis=1)
+    interpolate(return_df_dobc)
+    return return_df_dobc
 
 
-def interpolate(df_oil):
-    df_oil.reset_index(inplace=True)
-    df_oil.rename(columns={'index': 'date'}, inplace=True)
-    df_oil['date'] = pd.DatetimeIndex(df_oil['date'])
-    df_oil.set_index('date', inplace=True)
-    df_oil['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
+def interpolate(oil):
+    oil.reset_index(inplace=True)
+    oil.rename(columns={'index': 'date'}, inplace=True)
+    oil['date'] = pd.DatetimeIndex(oil['date'])
+    oil.set_index('date', inplace=True)
+    oil['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
                                      method='time')  # interpolate function because a lot of dates don't have oil values
-    df_oil['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
-    df_oil['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
+    oil['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
+    oil['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
 
 
 def get_wages_df():
@@ -167,72 +171,72 @@ def get_weekends_df():
     return df_weekend
 
 
-def concat_wages_weekend(*df):
-    ww = concatenator(*df, axis=1)
+def concat_wages_weekend(wages, weekends):
+    ww = concatenator(wages, weekends, axis=1)
     ww.reset_index(inplace=True)
     ww['date'] = pd.DatetimeIndex(ww['date'])
     ww.set_index('date', inplace=True)
     return ww
 
 
-def concat_date_oil_bc_wages_weekends(*df):
-    dobcww = concatenator(*df, axis=1)
+def concat_date_oil_bc_wages_weekends(dobc, ww):
+    dobcww = concatenator(dobc, ww, axis=1)
     dobcww.reset_index(inplace=True)
     return dobcww
 
 
-def get_holiday_events_df(df):
-    df = csv_to_df(df)
-    df = manage_transferred_dates(df)
-    df['transferred'] = np.where(df['transferred'] == 'False', 0, 1)
-    df.rename(columns={'transferred': 'holiday_mf'}, inplace=True)
-    df = binarize(df)
-    df = df[~df['date'].duplicated(keep='first')]
-    df['date'] = pd.DatetimeIndex(df['date'])
-    return df
+def get_holiday_events_df(holidays_events):
+    df_holidays_events = csv_to_df(holidays_events)
+    df_holidays_events = manage_transferred_dates(df_holidays_events)
+    df_holidays_events['transferred'] = np.where(df_holidays_events['transferred'] == 'False', 0, 1)
+    df_holidays_events.rename(columns={'transferred': 'holiday_mf'}, inplace=True)
+    df_holidays_events = binarize(df_holidays_events)
+    df_holidays_events = df_holidays_events[~df_holidays_events['date'].duplicated(keep='first')]
+    df_holidays_events['date'] = pd.DatetimeIndex(df_holidays_events['date'])
+    return df_holidays_events
 
 
-def manage_transferred_dates(df):
-    df['transferred'] = df['transferred'].astype(str)
-    df['type'] = df['type'].astype(str)
-    for i, row in df.iterrows():
-        if df['transferred'][i] == 'True':
-            if df['type'][i] == 'Holiday':
+def manage_transferred_dates(df_holidays_events):
+    df_holidays_events['transferred'] = df_holidays_events['transferred'].astype(str)
+    df_holidays_events['type'] = df_holidays_events['type'].astype(str)
+    for i, row in df_holidays_events.iterrows():
+        if df_holidays_events['transferred'][i] == 'True':
+            if df_holidays_events['type'][i] == 'Holiday':
 
                 # change next value where type is transfer
 
                 for j in range(i - 1,
                                len(
-                                   df)):  # need to check downwards to find the next instance of transfered
-                    if df['type'][j] == 'Transfer':
-                        df['type'][j] = 'Holiday'
+                                   df_holidays_events)):  # need to check downwards to find the next instance of transfered
+                    if df_holidays_events['type'][j] == 'Transfer':
+                        df_holidays_events['type'][j] = 'Holiday'
                         i = j
                         break
 
-            elif df['type'][i] == 'Event':
+            elif df_holidays_events['type'][i] == 'Event':
                 for j in range(i,
                                len(
-                                   df)):  # need to check downwards to find the next instance of transfered
-                    if df['type'][j] == 'Transfer':
-                        df['type'][j] = 'Event'
+                                   df_holidays_events)):  # need to check downwards to find the next instance of transfered
+                    if df_holidays_events['type'][j] == 'Transfer':
+                        df_holidays_events['type'][j] = 'Event'
                         i = j
                         break
-    return df
+    return df_holidays_events
 
 
-def merge_holidays_events_with_dates_oil_bc_wages_weekends(holiday_events, df2):
-    new_name_df = merger(holiday_events, df2, on='date', how='inner')
-    new_name_df['date'] = new_name_df['date'].astype(object)
-    new_name_df.fillna(0, inplace=True)
-    new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
-    return new_name_df
+def merge_holidays_events_with_dates_oil_bc_wages_weekends(holidays_events, dobcww):
+    hedobcww = merger(holidays_events, dobcww, on='date', how='inner')
+    hedobcww['date'] = hedobcww['date'].astype(object)
+    hedobcww.fillna(0, inplace=True)
+    hedobcww['date'] = pd.DatetimeIndex(hedobcww['date'])
+    return hedobcww
 
 
-def merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(df1, df2):
-    new_name_df = merger(df1, df2, on='date', how='inner')
-    new_name_df.fillna(0, inplace=True)
-    new_name_df['date'] = new_name_df['date'].astype(str)
-    return new_name_df
+def merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(hedobcww, su):
+    hedobcwwsu = merger(hedobcww, su, on='date', how='inner')
+    hedobcwwsu.fillna(0, inplace=True)
+    hedobcwwsu['date'] = hedobcwwsu['date'].astype(str)
+    return hedobcwwsu
 
 
 def downcast(df):
@@ -245,10 +249,10 @@ def downcast(df):
     return df
 
 
-def get_items_df(csv):
-    df = csv_to_df(csv)
-    df = binarize(df)
-    return df
+def get_items_df(items):
+    df_items = csv_to_df(items)
+    df_items = binarize(df_items)
+    return df_items
 
 
 def get_training_data_df(csv):
@@ -280,9 +284,6 @@ def partitioner_array(df):
         end_row = end_row + constant_change
         yield chunk
 
-
-def get_unit_sales_df(unit_sales):
-    return csv_to_df(unit_sales)
 
 
 def merge_training_data_with_all_other_df(df_e, get_items_df, df_hedobcwwsu):
