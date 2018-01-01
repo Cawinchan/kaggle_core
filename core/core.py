@@ -261,7 +261,7 @@ def get_training_data_df(csv):
     df['onpromotion'].replace(to_replace='nan', value=0, inplace=True)
     df['onpromotion'].replace(to_replace='False', value=0, inplace=True)
     df['onpromotion'].replace(to_replace='True', value=1, inplace=True)
-    ground_truth = df['unit_sales']
+    ground_truth = df['unit_sales'].as_matrix()
     training_data = df.drop(['unit_sales'], axis=1)
     return training_data, ground_truth
 
@@ -272,29 +272,22 @@ def chunk_processor(chunk, get_items_df, df_hedobcwwsu):
     return chunk_merged2
 
 
-def partitioner_array(df):
-    chunk_combined = pd.DataFrame()
-    end_row = int(len(df) / 12.5)
-    first_row = 0
-    constant_change = end_row
-    temp = pd.DataFrame()
-    for i in range(13):
-        chunk = df[first_row:end_row]
-        first_row = end_row
-        end_row = end_row + constant_change
+def partitioner_array(df,no_chunk):
+    for chunk in np.array_split(df, no_chunk):
         yield chunk
 
 
-
 def merge_training_data_with_all_other_df(df_e, get_items_df, df_hedobcwwsu):
-    result_array = np.empty((0, 120))
-    for partition in partitioner_array(df_e):
-        intermediate_chunk = chunk_processor(partition, get_items_df, df_hedobcwwsu)
-        remove_unnecessary_variables(intermediate_chunk)
-        intermediate_chunk.fillna(0, inplace=True)
-        matrix = intermediate_chunk.as_matrix()
-        result_array = np.vstack([result_array, matrix])
+    result_array = np.vstack(map(lambda x : get_and_process_chunk(df_hedobcwwsu, get_items_df, x),partitioner_array(df_e,100)))
+    print(result_array.shape)
     return result_array
+
+
+def get_and_process_chunk(df_hedobcwwsu, get_items_df, partition):
+    intermediate_chunk = chunk_processor(partition, get_items_df, df_hedobcwwsu)
+    remove_unnecessary_variables(intermediate_chunk)
+    intermediate_chunk.fillna(0, inplace=True)
+    return intermediate_chunk
 
 
 def remove_unnecessary_variables(intermediate_chunk):
@@ -304,13 +297,14 @@ def remove_unnecessary_variables(intermediate_chunk):
     del intermediate_chunk['date']
 
 TRAINING_DIRECTORY = os.getcwd() + "/data/"
+TRAINING_DIRECTORY = os.getcwd() + "/data/"
 stores = TRAINING_DIRECTORY + "stores.csv"
 unit_sales = TRAINING_DIRECTORY + "transactions.csv"
 holidays_events = TRAINING_DIRECTORY + "holidays_events.csv"
 bc = TRAINING_DIRECTORY + "bc.csv"
 oil = TRAINING_DIRECTORY + "oil.csv"
 items = TRAINING_DIRECTORY + "items.csv"
-e = TRAINING_DIRECTORY + "train.csv"
+e = TRAINING_DIRECTORY + "sampled_train.csv"
 
 df_stores = get_stores_df(stores)
 df_unit_sales = get_unit_sales_df(unit_sales)
