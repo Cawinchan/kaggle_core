@@ -440,7 +440,6 @@ print("linear_regressor_score is :", rsquared_2)
 y_pred = ln_regressor.predict(x_test)
 
 mean_squared_error(y_test, y_pred)
-
 predicted = rf_regressor.predict(x_test)
 
 print("show some actual and predicted values (actual,predicted)")
