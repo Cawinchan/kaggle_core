@@ -15,11 +15,12 @@ import platform
 
 def find_computername():
     if platform.node() == 'cawin-K401UQ':
-        TRAINING_DIRECTORY = "./Desktop/Cai/"
+        TRAINING_DIRECTORY = "/home/cawin/Desktop/Cai/"
     elif platform.node() == 'ubuntu':
         TRAINING_DIRECTORY = "./Cai/"
     else:
         TRAINING_DIRECTORY = "/home/edwin/downloads/caidata/"
+    print(TRAINING_DIRECTORY)
     return TRAINING_DIRECTORY
 
     # use caps for hardcoded data, this assumes all your data is in one directory
