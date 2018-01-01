@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 from matplotlib import style
 from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
 import platform
-
-
 def find_computername():
     if platform.node() == 'cawin-K401UQ':
         TRAINING_DIRECTORY = "./Desktop/Cai/"
