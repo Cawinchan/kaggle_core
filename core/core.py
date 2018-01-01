@@ -12,18 +12,7 @@ import matplotlib.pyplot as plt
 from matplotlib import style
 from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
 import platform
-
-def find_computername():
-    if platform.node() == 'cawin-K401UQ':
-        TRAINING_DIRECTORY = "/home/cawin/Desktop/Cai/"
-    elif platform.node() == 'ubuntu':
-        TRAINING_DIRECTORY = "./Cai/"
-    else:
-        TRAINING_DIRECTORY = "/home/edwin/downloads/caidata/"
-    print(TRAINING_DIRECTORY)
-    return TRAINING_DIRECTORY
-
-    # use caps for hardcoded data, this assumes all your data is in one directory
+import os
 
 
 def csv_to_df(csv):
@@ -57,18 +46,17 @@ def csv_to_df(csv):
 
 
 def merger(df1, df2, on, how):
-    merged = df1.merge(df2,on=on,how=how)
+    merged = df1.merge(df2, on=on, how=how)
     merged.fillna(0, inplace=True)
     gbcollector(df1, df2)
     return merged
 
 
-def concatnator(*dfs,axis):
+def concatnator(*dfs, axis):
     concatnated = pd.concat([*dfs], axis=axis)
     concatnated.fillna(0, inplace=True)
     gbcollector(*dfs)
     return concatnated
-
 
 
 def binarize(df):
@@ -86,11 +74,11 @@ def binarize(df):
             new_dataframe = pd.DataFrame(transformed)
             new_dataframe.rename(columns=dict(map(lambda x: (x, str(column) + "_" + str(x)), new_dataframe)),
                                  inplace=True)
-            temp = concatnator(temp, new_dataframe,axis=1)
+            temp = concatnator(temp, new_dataframe, axis=1)
             removal_list.append(column)
         else:
             pass
-    df = concatnator(df, temp,axis=1)
+    df = concatnator(df, temp, axis=1)
     for column in removal_list:
         del df[column]
     print("replaced columns", removal_list)
@@ -103,17 +91,14 @@ def df_stores(df):
     return df_bi
 
 
-
-
 def gbcollector(*dfs):
     lst = [*dfs]
     del lst
 
 
-
 def df_stores_unit_sales(df1, df2):
     df_df2 = csv_to_df(df2)
-    new_name_df = merger(df1, df_df2,on='store_nbr',how='inner')
+    new_name_df = merger(df1, df_df2, on='store_nbr', how='inner')
     new_name_df['date'] = pd.DatetimeIndex(new_name_df['date'])
     return new_name_df
 
@@ -143,7 +128,7 @@ def df_oil(df):
 
 
 def df_dates_oil_bc(*df):
-    new_name_df = concatnator(*df,axis=1)
+    new_name_df = concatnator(*df, axis=1)
     interpolate(new_name_df)
     return new_name_df
 
@@ -186,12 +171,12 @@ def df_weekends():
     saturday.rename(columns={0: 'date'}, inplace=True)
     saturday['date'] = pd.DatetimeIndex(saturday['date'])
     saturday.set_index('date', inplace=True)
-    df_weekend = concatnator(saturday, sunday,axis=1)
+    df_weekend = concatnator(saturday, sunday, axis=1)
     return df_weekend
 
 
 def df_wages_weekends(*df):
-    ww = concatnator(*df,axis=1)
+    ww = concatnator(*df, axis=1)
     ww.reset_index(inplace=True)
     ww['date'] = pd.DatetimeIndex(ww['date'])
     ww.set_index('date', inplace=True)
@@ -199,7 +184,7 @@ def df_wages_weekends(*df):
 
 
 def df_date_oil_bc_wages_weekends(*df):
-    dobcww = concatnator(*df,axis=1)
+    dobcww = concatnator(*df, axis=1)
     dobcww.reset_index(inplace=True)
     return dobcww
 
@@ -244,7 +229,7 @@ def manage_transferred_dates(df):
 
 
 def df_holidays_events_dates_oil_bc_wages_weekends(df1, df2):
-    new_name_df = merger(df1, df2, on='date',how='inner')
+    new_name_df = merger(df1, df2, on='date', how='inner')
     gbcollector(df1, df2)
     new_name_df['date'] = new_name_df['date'].astype(object)
     new_name_df.fillna(0, inplace=True)
@@ -253,7 +238,7 @@ def df_holidays_events_dates_oil_bc_wages_weekends(df1, df2):
 
 
 def holidays_events_dates_oil_bc_wages_weekends_stores_unit_sales(df1, df2):
-    new_name_df = merger(df1, df2, on='date',how='inner')
+    new_name_df = merger(df1, df2, on='date', how='inner')
     new_name_df.fillna(0, inplace=True)
     new_name_df['date'] = new_name_df['date'].astype(str)
     return new_name_df
@@ -264,7 +249,7 @@ def downcast(df):
     converted_int = df.select_dtypes(include=['int']).apply(pd.to_numeric, downcast='unsigned')
     converted_float = df.select_dtypes(include=['float']).apply(pd.to_numeric, downcast='float')
     df_obj = df.select_dtypes(include=['object']).copy()
-    df = concatnator(converted_int, converted_float, df_obj,axis=1)
+    df = concatnator(converted_int, converted_float, df_obj, axis=1)
     gbcollector(converted_int, converted_float, df_obj)
     print(df.info())
     return df
@@ -286,9 +271,9 @@ def df_e(csv):
 
 
 def chunk_processor(chunk):
-    chunk_merged1 = merger(chunk, df_hedobcwwsu, on=['date', 'store_nbr'],how='left')
+    chunk_merged1 = merger(chunk, df_hedobcwwsu, on=['date', 'store_nbr'], how='left')
     print(chunk_merged1.shape)
-    chunk_merged2 = merger(chunk_merged1, df_items, on='item_nbr',how='left')
+    chunk_merged2 = merger(chunk_merged1, df_items, on='item_nbr', how='left')
     print(chunk_merged2.shape)
     return chunk_merged2
 
@@ -311,7 +296,7 @@ def partitioner_array(df):
     return df
 
 
-TRAINING_DIRECTORY = find_computername()
+TRAINING_DIRECTORY = os.getcwd() + "/data/"
 
 stores = TRAINING_DIRECTORY + "stores.csv"
 unit_sales = TRAINING_DIRECTORY + "transactions.csv"
@@ -354,8 +339,6 @@ df_items = df_items(items)
 df_e = df_e(e)
 
 partitioner_array(df_e)
-
-
 
 e_items = e.merge(items, on='item_nbr', how='inner')
 lst = [items, e]
