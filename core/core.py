@@ -154,7 +154,6 @@ def get_wages_df():
     wages.set_index('date', inplace=True)
     return wages
 
-
 def get_weekends_df():
     beg = pd.Timestamp('2012-01-01')
     end = pd.Timestamp('2017-12-31')
