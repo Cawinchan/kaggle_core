@@ -14,7 +14,6 @@ from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
 import platform
 import os
 
-
 def csv_to_df(csv):
     if csv == stores:
         df = pd.read_csv(csv,
