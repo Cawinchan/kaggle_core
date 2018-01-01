@@ -267,7 +267,7 @@ def get_training_data_df(csv):
     return df
 
 
-def chunk_processor(chunk):
+def chunk_processor(chunk,get_items_df,df_hedobcwwsu):
     chunk_merged1 = merger(chunk, df_hedobcwwsu, on=['date', 'store_nbr'], how='left')
     print(chunk_merged1.shape)
     chunk_merged2 = merger(chunk_merged1, get_items_df, on='item_nbr', how='left')
@@ -285,48 +285,16 @@ def partitioner_array(df):
         chunk = df[first_row:end_row]
         first_row = end_row
         end_row = end_row + constant_change
-        yield
+        yield chunk
 
 
-def get_unit_sales_df():
+def get_unit_sales_df(unit_sales):
     return csv_to_df(unit_sales)
 
-def merge_training_data_with_all_other_df(df_e,items):
-
+def merge_training_data_with_all_other_df(df_e,get_items_df,df_hedobcwwsu):
+    merge_array = np.array()
     for partition in partitioner_array(df_e):
-        e_items = partition.merge(items, on='item_nbr', how='inner')
-
-        e_items.fillna(0, inplace=True)
-
-        e_items.info()
-
-        hedobcww.reset_index(inplace=True)
-
-        hedobcww['date'] = hedobcww['date'].astype(str)
-
-        e['date'] = e['date'].astype(str)
-
-        eihedobcww = e_items.merge(hedobcww, on='date', how='left')
-        lst = [e_items, hedobcww]
-        del lst
-
-        eihedobcww.info()
-
-        # eihedobcww.set_index('store_nbr',inplace=True)
-        # su.set_index('store_nbr',inplace=True)
-        # eihedobcwwsu = pd.concat([eihedobcww,su],axis=0)
-
-        eihedobcwwsu = eihedobcww.merge(su, on=['store_nbr', 'date'], how='left')
-
-        input_df = eihedobcwwsu  # copy dataset so that we can keep a copy of original
-
-        ground_truth = input_df['unit_sales']
-        training_data = input_df.drop(['unit_sales'], axis=1)
-
-        del training_data['id']
-        del training_data['index']
-
-        training_data.fillna(0, inplace=True)
+        chunk_processor(partition,get_items_df,df_hedobcwwsu)
 
 
 TRAINING_DIRECTORY = os.getcwd() + "/data/"
@@ -339,7 +307,7 @@ items = TRAINING_DIRECTORY + "items.csv"
 e = TRAINING_DIRECTORY + "train.csv"
 
 df_stores = get_stores_df(stores)
-df_unit_sales = get_unit_sales_df()
+df_unit_sales = get_unit_sales_df(unit_sales)
 df_su = merge_stores_with_unit_sales(df_stores, df_unit_sales)
 
 df_dates = get_dates_df()
@@ -360,10 +328,16 @@ df_hedobcwwsu = merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_un
 df_dc_hedobcwwsu = downcast(df_hedobcwwsu)
 
 df_items = get_items_df(items)
-
 df_e = get_training_data_df(e)
-
 merge_training_data_with_all_other_df(df_e,df_items,df_dc_hedobcwwsu)
+
+ground_truth = input_df['unit_sales']
+training_data = input_df.drop(['unit_sales'], axis=1)
+
+del training_data['id']
+del training_data['index']
+
+training_data.fillna(0, inplace=True)
 
 scaled_training_data = minmax_scale(training_data)  # minmax defaults to [0,1]
 
