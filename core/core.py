@@ -11,7 +11,6 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib import style
 from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
-import platform
 import os
 
 
@@ -292,11 +291,10 @@ def get_and_process_chunk(df_hedobcwwsu, get_items_df, partition):
 
 def remove_unnecessary_variables(intermediate_chunk):
     del intermediate_chunk['id']
-    del intermediate_chunk['store_nbr']
+    #del intermediate_chunk['store_nbr']
     del intermediate_chunk['item_nbr']
     del intermediate_chunk['date']
 
-TRAINING_DIRECTORY = os.getcwd() + "/data/"
 TRAINING_DIRECTORY = os.getcwd() + "/data/"
 stores = TRAINING_DIRECTORY + "stores.csv"
 unit_sales = TRAINING_DIRECTORY + "transactions.csv"
@@ -307,6 +305,7 @@ items = TRAINING_DIRECTORY + "items.csv"
 e = TRAINING_DIRECTORY + "sampled_train.csv"
 
 df_stores = get_stores_df(stores)
+print(pd.read_csv(stores))
 df_unit_sales = get_unit_sales_df(unit_sales)
 df_su = merge_stores_with_unit_sales(df_stores, df_unit_sales)
 
@@ -345,7 +344,8 @@ print("rf score is :", rsquared)
 
 y_pred = rf_regressor.predict(x_test)
 
-mean_squared_error(y_test, y_pred)
+mse = mean_squared_error(y_test, y_pred)
+print(mse)
 
 ln_regressor.fit(x_train, y_train)
 rsquared_2 = ln_regressor.score(x_test, y_test)
@@ -359,3 +359,5 @@ predicted = rf_regressor.predict(x_test)
 
 print("show some actual and predicted values (actual,predicted)")
 print(list(zip(y_test, predicted.round()))[:100])
+
+len(df_e)
