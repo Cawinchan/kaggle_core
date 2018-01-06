@@ -12,6 +12,13 @@ import matplotlib.pyplot as plt
 from matplotlib import style
 from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
 import os
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasRegressor
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 
 def csv_to_df(csv):
@@ -33,26 +40,26 @@ def csv_to_df(csv):
     elif csv == items:
         df = pd.read_csv(csv,
                          dtype={'item_nbr': np.float32, 'family': str, 'class': np.int16, 'perishable': np.int16})
-
     elif csv == e:
-        df = pd.read_csv(csv,
+        df = pd.read_csv(csv,nrows=10000000,
                          dtype={'id': np.int32, 'date': object, 'store_nbr': np.int32, 'item_nbr': np.int32,
                                 'unit_sales': np.float32, 'onpromotion': str})
     else:
         df = pd.read_csv(csv)
-
     return df
 
 
 def merger(df1, df2, on, how):
     merged = df1.merge(df2, on=on, how=how)
     merged.fillna(0, inplace=True)
+    del [df1,df2]
     return merged
 
 
 def concatenator(*dfs, axis):
     concatnated = pd.concat([*dfs], axis=axis)
     concatnated.fillna(0, inplace=True)
+    del [dfs]
     return concatnated
 
 
@@ -64,6 +71,10 @@ def binarize(df):
             pass
         elif column == 'description':
             del df[column]
+#       elif column == 'city':
+#          pass
+#        elif column == 'state':
+#            pass
         elif df[column].dtype == object:
             lb = LabelBinarizer()
             lb.fit(df[column])
@@ -86,7 +97,6 @@ def get_stores_df(stores):
     df_stores = csv_to_df(stores)
     df_stores = binarize(df_stores)
     return df_stores
-
 
 def get_unit_sales_df(unit_sales):
     return csv_to_df(unit_sales)
@@ -262,6 +272,7 @@ def get_training_data_df(csv):
     df['onpromotion'].replace(to_replace='True', value=1, inplace=True)
     ground_truth = df['unit_sales'].as_matrix()
     training_data = df.drop(['unit_sales'], axis=1)
+    print("done with training data")
     return training_data, ground_truth
 
 
@@ -295,6 +306,23 @@ def remove_unnecessary_variables(intermediate_chunk):
     del intermediate_chunk['item_nbr']
     del intermediate_chunk['date']
 
+def baseline_model():
+    model = Sequential()
+    model.add(Dense(200,input_dim=121,kernel_initializer='normal', activation='relu')) #1
+    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #2
+    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #3
+    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #3
+    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #4
+    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #5
+    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #6
+    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #7
+    model.add(Dense(100,kernel_initializer='normal', activation='relu'))               #8
+    model.add(Dense(100,kernel_initializer='normal', activation='relu'))               #9
+    model.add(Dense(1,kernel_initializer='normal'))                  #10
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    return model
+
+
 TRAINING_DIRECTORY = os.getcwd() + "/data/"
 stores = TRAINING_DIRECTORY + "stores.csv"
 unit_sales = TRAINING_DIRECTORY + "transactions.csv"
@@ -302,12 +330,12 @@ holidays_events = TRAINING_DIRECTORY + "holidays_events.csv"
 bc = TRAINING_DIRECTORY + "bc.csv"
 oil = TRAINING_DIRECTORY + "oil.csv"
 items = TRAINING_DIRECTORY + "items.csv"
-e = TRAINING_DIRECTORY + "sampled_train.csv"
+e = TRAINING_DIRECTORY + "train.csv"
 
 df_stores = get_stores_df(stores)
-print(pd.read_csv(stores))
 df_unit_sales = get_unit_sales_df(unit_sales)
 df_su = merge_stores_with_unit_sales(df_stores, df_unit_sales)
+
 
 df_dates = get_dates_df()
 df_oil = get_oil_df(oil)
@@ -321,6 +349,7 @@ df_ww = concat_wages_weekend(df_wages, df_weekends)
 df_dobcww = concat_date_oil_bc_wages_weekends(df_dobc, df_ww)
 
 df_holidays_events = get_holiday_events_df(holidays_events)
+
 df_hedobcww = merge_holidays_events_with_dates_oil_bc_wages_weekends(df_holidays_events, df_dobcww)
 
 df_hedobcwwsu = merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(df_hedobcww, df_su)
@@ -334,30 +363,46 @@ scaled_training_data = minmax_scale(training_data)  # minmax defaults to [0,1]
 
 x_train, x_test, y_train, y_test = train_test_split(scaled_training_data, ground_truth, test_size=0.2)
 
-rf_regressor = RandomForestRegressor()
-ln_regressor = LinearRegression(normalize=True)
+seed = 7
+np.random.seed(seed)
+estimators = []
+estimators.append(('mlp', KerasRegressor(build_fn=baseline_model, epochs=5, batch_size=10000)))
+pipeline = Pipeline(estimators)
+kfold = KFold(2, random_state=seed)
+results = cross_val_score(pipeline, x_train, y_train, cv=kfold)
+print("Results: %.2f (%.2f) MSE" % (results.mean(), results.std()))
 
-rf_regressor.fit(x_train, y_train)
-rsquared = rf_regressor.score(x_test, y_test)
 
-print("rf score is :", rsquared)
 
-y_pred = rf_regressor.predict(x_test)
 
-mse = mean_squared_error(y_test, y_pred)
-print(mse)
+#scaled_training_data = minmax_scale(training_data)  # minmax defaults to [0,1]
 
-ln_regressor.fit(x_train, y_train)
-rsquared_2 = ln_regressor.score(x_test, y_test)
+#x_train, x_test, y_train, y_test = train_test_split(scaled_training_data, ground_truth, test_size=0.2)
 
-print("linear_regressor_score is :", rsquared_2)
+#rf_regressor = RandomForestRegressor()
+#ln_regressor = LinearRegression(normalize=True)
 
-y_pred = ln_regressor.predict(x_test)
+#rf_regressor.fit(x_train, y_train)
+#rsquared = rf_regressor.score(x_test, y_test)
 
-mean_squared_error(y_test, y_pred)
-predicted = rf_regressor.predict(x_test)
+#print("rf score is :", rsquared)
 
-print("show some actual and predicted values (actual,predicted)")
-print(list(zip(y_test, predicted.round()))[:100])
+#y_pred = rf_regressor.predict(x_test)
+
+#mse = mean_squared_error(y_test, y_pred)
+#print(mse)
+
+#ln_regressor.fit(x_train, y_train)
+#rsquared_2 = ln_regressor.score(x_test, y_test)
+
+#print("linear_regressor_score is :", rsquared_2)
+
+#y_pred = ln_regressor.predict(x_test)
+
+#mean_squared_error(y_test, y_pred)
+#predicted = rf_regressor.predict(x_test)
+
+#print("show some actual and predicted values (actual,predicted)")
+#print(list(zip(y_test, predicted.round()))[:100])
 
 len(df_e)
