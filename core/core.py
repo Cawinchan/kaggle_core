@@ -7,7 +7,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import train_test_split
 from sklearn.svm import SVC
-import datetime
 import matplotlib.pyplot as plt
 from matplotlib import style
 from sklearn.preprocessing import minmax_scale, OneHotEncoder, LabelBinarizer
@@ -19,7 +18,12 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-
+import gensim
+from matplotlib import pyplot
+from gensim.models import KeyedVectors
+from gensim.scripts.glove2word2vec import glove2word2vec
+import h5py
+from sklearn.decomposition import PCA
 
 def csv_to_df(csv):
     if csv == stores:
@@ -41,7 +45,7 @@ def csv_to_df(csv):
         df = pd.read_csv(csv,
                          dtype={'item_nbr': np.float32, 'family': str, 'class': np.int16, 'perishable': np.int16})
     elif csv == e:
-        df = pd.read_csv(csv,nrows=10000000,
+        df = pd.read_csv(csv,nrows=100000,
                          dtype={'id': np.int32, 'date': object, 'store_nbr': np.int32, 'item_nbr': np.int32,
                                 'unit_sales': np.float32, 'onpromotion': str})
     else:
@@ -62,40 +66,9 @@ def concatenator(*dfs, axis):
     del [dfs]
     return concatnated
 
-
-def binarize(df):
-    temp = pd.DataFrame()
-    removal_list = []
-    for column in df:
-        if column == 'date':
-            pass
-        elif column == 'description':
-            del df[column]
-#       elif column == 'city':
-#          pass
-#        elif column == 'state':
-#            pass
-        elif df[column].dtype == object:
-            lb = LabelBinarizer()
-            lb.fit(df[column])
-            transformed = lb.transform(df[column])
-            new_df = pd.DataFrame(transformed)
-            new_df.rename(columns=dict(map(lambda x: (x, str(column) + "_" + str(x)), new_df)),
-                          inplace=True)
-            temp = concatenator(temp, new_df, axis=1)
-            removal_list.append(column)
-        else:
-            pass
-    df = concatenator(df, temp, axis=1)
-    for column in removal_list:
-        del df[column]
-    print("replaced columns", removal_list)
-    return df
-
-
 def get_stores_df(stores):
     df_stores = csv_to_df(stores)
-    df_stores = binarize(df_stores)
+    df_stores.rename(columns={'type':'area_of_store'},inplace=True)
     return df_stores
 
 def get_unit_sales_df(unit_sales):
@@ -134,19 +107,20 @@ def get_oil_df(oil):
 
 def concat_dates_oil_bc(dates, oil, bc):
     return_df_dobc = concatenator(dates, oil, bc, axis=1)
-    interpolate(return_df_dobc)
-    return return_df_dobc
+    interpolated_df_dobc = interpolate(return_df_dobc)
+    return interpolated_df_dobc
 
 
-def interpolate(oil):
-    oil.reset_index(inplace=True)
-    oil.rename(columns={'index': 'date'}, inplace=True)
-    oil['date'] = pd.DatetimeIndex(oil['date'])
-    oil.set_index('date', inplace=True)
-    oil['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
+def interpolate(return_df_dobc):
+    return_df_dobc.reset_index(inplace=True)
+    return_df_dobc.rename(columns={'index': 'date'}, inplace=True)
+    return_df_dobc['date'] = pd.DatetimeIndex(return_df_dobc['date'])
+    return_df_dobc.set_index('date', inplace=True)
+    return_df_dobc['dcoilwtico'].interpolate(inplace=True, limit_direction='both',
                                      method='time')  # interpolate function because a lot of dates don't have oil values
-    oil['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
-    oil['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
+    return_df_dobc['gp_bananas'].interpolate(inplace=True, limit_direction='both', method='time')
+    return_df_dobc['gp_cocas'].interpolate(inplace=True, limit_direction='both', method='time')
+    return return_df_dobc
 
 
 def get_wages_df():
@@ -198,8 +172,7 @@ def get_holiday_events_df(holidays_events):
     df_holidays_events = csv_to_df(holidays_events)
     df_holidays_events = manage_transferred_dates(df_holidays_events)
     df_holidays_events['transferred'] = np.where(df_holidays_events['transferred'] == 'False', 0, 1)
-    df_holidays_events.rename(columns={'transferred': 'holiday_mf'}, inplace=True)
-    df_holidays_events = binarize(df_holidays_events)
+    df_holidays_events.rename(columns={'transferred': 'holiday_mf','type':'type_of_Holiday'}, inplace=True)
     df_holidays_events = df_holidays_events[~df_holidays_events['date'].duplicated(keep='first')]
     df_holidays_events['date'] = pd.DatetimeIndex(df_holidays_events['date'])
     return df_holidays_events
@@ -247,7 +220,6 @@ def merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(hed
     hedobcwwsu['date'] = hedobcwwsu['date'].astype(str)
     return hedobcwwsu
 
-
 def downcast(df):
     print(df.info())
     converted_int = df.select_dtypes(include=['int']).apply(pd.to_numeric, downcast='unsigned')
@@ -260,8 +232,16 @@ def downcast(df):
 
 def get_items_df(items):
     df_items = csv_to_df(items)
-    df_items = binarize(df_items)
+    df_items.rename(columns={'family':'item_family'},inplace=True)
     return df_items
+
+def string_to_vector(df1,df2):
+    filepath = '/home/cawin/PycharmProjects/Cai/kaggle_core/core/data/'
+    #glove_input_file = filepath + 'glove.6B.50d.txt'
+    #word2vec_output_file = filepath + 'glove.6B.50d.txt.word2vec'
+    #glove2word2vec(glove_input_file, word2vec_output_file)
+    model = KeyedVectors.load_word2vec_format(filepath + 'glove.6B.50d.txt.word2vec', binary=False)
+    dict
 
 
 def get_training_data_df(csv):
@@ -279,8 +259,7 @@ def get_training_data_df(csv):
 def chunk_processor(chunk, get_items_df, df_hedobcwwsu):
     chunk_merged1 = merger(chunk, df_hedobcwwsu, on=['date', 'store_nbr'], how='left')
     chunk_merged2 = merger(chunk_merged1, get_items_df, on='item_nbr', how='left')
-    return chunk_merged2
-
+    return chunk_merge
 
 def partitioner_array(df,no_chunk):
     for chunk in np.array_split(df, no_chunk):
@@ -303,21 +282,21 @@ def get_and_process_chunk(df_hedobcwwsu, get_items_df, partition):
 def remove_unnecessary_variables(intermediate_chunk):
     del intermediate_chunk['id']
     #del intermediate_chunk['store_nbr']
-    del intermediate_chunk['item_nbr']
+    #del intermediate_chunk['item_nbr']
     del intermediate_chunk['date']
 
 def baseline_model():
     model = Sequential()
-    model.add(Dense(200,input_dim=121,kernel_initializer='normal', activation='relu')) #1
-    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #2
-    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #3
-    model.add(Dense(200,kernel_initializer='normal', activation='relu'))               #3
-    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #4
-    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #5
-    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #6
-    model.add(Dense(150,kernel_initializer='normal', activation='relu'))               #7
-    model.add(Dense(100,kernel_initializer='normal', activation='relu'))               #8
-    model.add(Dense(100,kernel_initializer='normal', activation='relu'))               #9
+    model.add(Dense(254,input_dim=122,kernel_initializer='normal', activation='relu')) #1
+    model.add(Dense(254,kernel_initializer='normal', activation='relu'))               #2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
+    model.add(Dense(254, kernel_initializer='normal', activation='relu'))  # 2
     model.add(Dense(1,kernel_initializer='normal'))                  #10
     model.compile(loss='mean_squared_error', optimizer='adam')
     return model
@@ -353,9 +332,13 @@ df_holidays_events = get_holiday_events_df(holidays_events)
 df_hedobcww = merge_holidays_events_with_dates_oil_bc_wages_weekends(df_holidays_events, df_dobcww)
 
 df_hedobcwwsu = merge_holidays_events_dates_oil_bc_wages_weekends_stores_with_unit_sales(df_hedobcww, df_su)
+
 df_dc_hedobcwwsu = downcast(df_hedobcwwsu)
 
 df_items = get_items_df(items)
+
+string_to_vector(df_hedobcwwsu,df_items)
+
 df_e, ground_truth = get_training_data_df(e)
 training_data = merge_training_data_with_all_other_df(df_e, df_items, df_dc_hedobcwwsu)
 
@@ -366,10 +349,11 @@ x_train, x_test, y_train, y_test = train_test_split(scaled_training_data, ground
 seed = 7
 np.random.seed(seed)
 estimators = []
-estimators.append(('mlp', KerasRegressor(build_fn=baseline_model, epochs=5, batch_size=10000)))
-pipeline = Pipeline(estimators)
-kfold = KFold(2, random_state=seed)
-results = cross_val_score(pipeline, x_train, y_train, cv=kfold)
+estimators.append(('standardize', StandardScaler()))
+estimators.append(('mlp', KerasRegressor(build_fn=baseline_model, epochs=100, batch_size=1000)))
+pipeline = Pipeline(estimators).fit(x_train,y_train)
+kfold = KFold(5, random_state=seed)
+results = cross_val_score(pipeline, x_train, y_train, cv=kfold,verbose=0)
 print("Results: %.2f (%.2f) MSE" % (results.mean(), results.std()))
 
 
